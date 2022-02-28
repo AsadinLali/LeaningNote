@@ -1,2 +1,2 @@
-# Eight-legged-essay
-私人学习记录的JAVA后端开发八股文
+# Eight-LeaningNotes
+Asadin的JAVA后端开发学习笔记
