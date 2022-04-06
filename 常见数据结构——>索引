@@ -1,4 +1,40 @@
-假设你想建立一个索引结构，你会用什么数据结构呢
+
+
+文档字段的数据类型
+1.字符串: ES5版本后 String类型分为:
+		text :用于文本内容，如产品说明等，存储时会被进行分词，支持模糊搜索,精确搜索等，但由于分词后，词典很大，做聚合性能会很差，且聚合操作做的只是词典里的词并非全文，所以并不支持聚合操作
+		keyword :用于关键词内容，如姓名，存储时不会分词，只支持精确搜索，并且支持聚合操作
+2.数值: 多种数值类型，满足需求的情况下，尽可能选择范围小的数据类型，字段的长度越短，索引和搜索的效率越高
+3.布尔: true or false
+4.日期: 字符串形式 毫秒 秒
+5.对象: JSONObject
+6.数组: JSONArray
+
+
+ES索引一个文档的过程:
+数据过程分别是 应用内存 系统内存 磁盘 修改日志
+1.写入in-memory buffer: 节点0收到索引请求后，根据_id找到该数据分片，进而找到存储该分片的节点，提交索引请求，此时会往应用内存(in-memory buffer)里写入数据，且写入translog日志文件。此时不能被检索到。
+      in-memory buffer是应用内缓冲区，当缓冲区大小达到4kb(一个磁盘页大小)或者时间达到了1秒钟的时候，才会进行refresh操作
+
+2.refresh: in-memory buffer中的数据写入到FileSystem中的segment中了，此时可以被检索到，写入后清空in-memory buffer，且在此会定期执行merge操作
+      FileSystem是文件系统的缓存，还是在内存中，
+
+3.flush:当translog达到一定数值或者时间达到30分钟的时候，会触发flush操作
+	首先将buffer中的现有数据refresh到os cache中，清空buffer
+	然后在磁盘上写入一个commit point文件，里面标识着这个commit point前os cache中的所有旧segment file文件数据
+	再强行将os cache中的所有数据 fsync 到磁盘文件中去
+	最后将translog清空，因为此时里面记录的数据此时都已经被fsync到磁盘了。
+    
+
+
+
+
+
+
+
+ES倒排索引数据结构：
+
+前缀树升级版(FSA)
 
 1.散列表  
   优点:插入 O(1)     单个查找 O(1)     
