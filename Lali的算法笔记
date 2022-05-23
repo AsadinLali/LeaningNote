@@ -1,0 +1,20 @@
+
+
+
+
+
+
+
+区间问题：
+    标志:int[][] intervals 且 int[]大小为2，一个为begin,一个为end。
+        区间问题多为 合并区间 找区间交集 等
+    思路:将区间用线段方式表示，画图理解题意。
+         1.画图  2.排序（用start排序(start相等再end排序)，用end排序都可）
+    leetcode:
+     56.合并区间
+     986.区间列表的交集
+     1288.删除被覆盖区间
+     435.无重叠区间
+     452.用最少数量的箭引爆气球
+            if (intervals[i][0] <= intervals[i - 1][1]) {q
+            if (intervals[i][0] <= intervals[i - 1][1]) 
