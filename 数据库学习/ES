@@ -1,0 +1,40 @@
+ES 分布式搜索引擎
+  
+  结构:
+    物理结构: ES集群由ES节点组成，ES节点由分片组成，分片(Lucene索引)，一个Lucene索引由多个segment和一个commit point组成，segment由多个文档组成
+        一个ES索引有多个分片
+    逻辑结构: 索引拥有1或多个映射，映射会有多个对应的文档，文档有很多个域。
+    
+  
+  lucene:
+    lucene是一个基于倒排索引的全文搜索工具包。
+    
+    倒排索引:
+    
+  
+  
+文档处理:
+  ES索引文档过程:
+    1.路由:协调节点收到索引文档请求，根据文档的_id哈希得到文档对应的分片，然后将索引请求发送给该分片对应的数据节点。
+    2.写入应用缓存:首先将文档写入in-memory buffer和translog日志文件中。
+                 当达到时间quota(1s)或者大小quota(4kb)会进行refresh操作。
+    3.写入页缓存:in-memory buffer中的数据写入到FileSystem中的segment中了，此时可以被检索到，写入后清空in-memory buffer，且在此会定期执行merge操作。
+                当translog达到时间quota或者大小quota会进行flush操作
+    4.写入磁盘:将页缓存的数据通过fsync写入硬盘，并写入一个新的commi point文件
+	            将translog清空，因为此时里面记录的数据此时都已经被fsync到磁盘了。
+      
+    注：
+      1.ES中任何一个节点都是协调节点。
+      2.在in-memory buffer中的数据无法被检索到，所以ES也被称为近实时。
+      3.在flush操作时会先将应用缓存中数据写入页缓存，使得此时所有数据后续可以写入磁盘。
+      4.commi point文件记录了此时硬盘中的所有的段，在数据恢复时候有用
+      5.fsync相比sync，会确保成功写入硬盘才返回
+       
+  ES删除文档过程:
+    写入.del文件，然后在其中的文件等于被删除了，在segment merge时候真正删除
+  
+  ES检索文档过程:
+    
+    
+    
+    
