@@ -1,0 +1,19 @@
+数据类型与结构:
+  数据类型: 
+           key都是字符串类型 value有 string hash list set zset
+  数据结构: 
+           SDS(简单动态字符串): 空间预分配 惰性删除 (减少了修改字符串时带来的空间重分配)
+           List : 双端链表
+           HashMap : 链表法解决冲突的hashmap  渐进式rehash 维持两张表，rehash时，同时使用
+           SkipList(跳跃表): 层高是1-32之间的随机数的跳跃表 由zskiplist和zskiplistNode组成 按分值排序，分值相等按字典序排序
+           intset(整数集合): 会升级数据类型的数组 尽可能的节约了内存
+           ziplist(压缩列表): 压缩列表是一种节约内存的数据结构,有多个节点,每个节点可以包含一个字节数组或者整数值
+           object(对象): 类型(什么对象) 编码(什么实现方式) 指针(值)
+                          字符串对象 int raw(sds) embstr(短sds)
+                          列表对象 ziplist linkedlist
+                          哈希对象 ziplist hasntable
+                          集合对象 intset hashtable
+                          有序集合对象 ziplist skiplist
+           
+           
+  数据结构的设计中包含着大量的空间换时间 例如 空间预分配 渐进式rehash 跳跃表 等
