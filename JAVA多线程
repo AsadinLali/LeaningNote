@@ -1,0 +1,53 @@
+JAVA多线程
+
+JAVA多线程知识:
+	线程池
+		ExecutorService -> AbstractExecutorService -> ThreadPoolExecutor -> ScheduledThreadPoolExecutor
+
+		任务在线程池的执行过程:
+			核心线程池 -> 工作队列 -> 最大线程池 -> 拒绝策略
+
+			提交任务 ->  核心线程池未满 -> 创建线程执行任务(任务结束后线程保留等待其他任务)
+						核心线程池已满 -> 工作队列未满 -> 进入等待队列等待执行
+									 -> 工作队列已满 -> 最大线程池未满 -> 创建线程执行任务(任务结束后保持keepAliveTime空闲时间)
+									 			   -> 最大线程池已满 -> 执行拒绝策略
+
+		ThreadPoolExecutor核心参数:
+			corePoolSize
+			maximumPoolSize
+			workQueue: 
+				ArrayBlockingQueue 数组型阻塞队列：数组结构，初始化时传入大小，有界，FIFO，使用一个重入锁，默认使用非公平锁，入队和出队共用一个锁，互斥。
+				LinkedBlockingQueue 链表型阻塞队列：链表结构，默认初始化大小为Integer.MAX_VALUE，有界（近似无界），FIFO，使用两个重入锁分别控制元素的入队和出队，用Condition进行线程间的唤醒和等待。
+				SynchronousQueue 同步队列：容量为0，添加任务必须等待取出任务，这个队列相当于通道，不存储元素。
+				PriorityBlockingQueue 优先阻塞队列：无界，默认采用元素自然顺序升序排列。
+				DelayQueue 延时队列：无界，元素有过期时间，过期的元素才能被取出。
+			handler:
+				AbortPolicy：丢弃任务并抛出RejectedExecutionException异常。(默认)
+				DiscardPolicy：丢弃任务，但是不抛出异常。可能导致无法发现系统的异常状态。
+				DiscardOldestPolicy：丢弃队列最前面的任务，然后重新提交被拒绝的任务。
+				CallerRunsPolicy：由调用线程处理该任务。减慢提交任务。
+			threadFactory
+			keepAliveTime
+			unit
+
+		ThreadPoolExecutor核心方法:
+			execute：1.只能提交Runnable接口的对象，我们知道Runnable接口的run方法是没有返回值的。2.execute方法提交的任务异常是直接抛出的
+			submit: 1.可以提交Runnable也可以提交Callable对象，即可以有返回值，也可以没有。2.submit方法是是捕获了异常的，当调用FutureTask的get方法时，才会抛出异常。
+						Future<T> submit(Runnable task) Futrue.get返回null
+						Future<T> submit(Runnable task, T result) Futrue.get返回result
+						Future<T> submit(Callable<T> task) 返回task的结果
+
+
+
+
+
+
+		Executors提供了
+			Executors.newCachedThreadPool（无界线程池，自动线程回收）
+			Executors.newFixedThreadPool（固定大小的线程池）
+			Executors.newSingleThreadExecutor（单一后台线程）
+
+	volatile
+		可见性:volatile关键字用于标记一个变量“应当读写都在主存”。更确切地说，每次读取volatile变量，都应该从主存读取，而不是从CPU缓存读取。每次写入一个volatile变量，应该写到主存中，而不是仅仅写到CPU缓存。这样保证了变量可见性。且具有完整可见性（在对volatile变量操作后，其余变量也当时可见）
+		有序性:提供了happends-before保证
+		原子性:不支持原子性，导致变量新值的写入不能依赖于变量的旧值，可以使用原子类来支持原子性
