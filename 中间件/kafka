@@ -1,1 +1,135 @@
+kafka学习笔记：
+	
+	1.kafka是如何保证数据不丢失的呢？
+
+	Kafka 对 已提交 的消息做 最大限度的持久化保证不丢失。
+
+	生产者:
+		生产者组可以通过判断是否收到broker端的成功响应来保证生产者发送消息到broker的稳定性
+			通过对acks参数的设置可以指定有多少副本收到该消息，才算被成功收到
+				acks = 1   表示 只要leader副本成功写入就对生产者端发送成功相应  如果在leader副本同步给其他副本前，leader副本发生故障，那么消息会发生丢失
+				acks = 0   表示 生产者发送消息后无需等待成功响应   这样可以达到最大的吞吐，但是消息丢失风险也更大
+				acks = -1  表示 ISR中的所有副本成功写入就对生产者端才发送成功相应   ISR的使用是一种在吞吐和稳定性之间的折中选择，不需要等待所有副本写入，也不是只有一个副本写入
+
+	broker:
+		broker端通过多副本消息同步机制保证消息的不丢失
+			多副本消息同步机制:
+				基于HW的消息同步机制：
+					follower副本向leader副本发送消息同步请求，带上自己的LEO
+					leader副本更新自己的HW || 并向向follower副本返回从follower副本LEO开始的消息以及此时的HW
+					follower副本收到消息后更新自己的LEO和HW
+
+					Producer Write -> Follower Fetch -> Leader Update HW -> Leader Response	-> Follower Update HW	
+
+					该消息同步机制存在数据丢失的问题:
+
+					当leader副本写入消息后，再将消息同步给了follower副本，此时HW都是该消息前一个，但是已经发送成功写入消息给了生产者，此时如果leader副本和follower副本
+
+
+	消费者:
+		如果消息提交在消费前提交就会发生丢失的情况
+		
+
+		手动提交： 拉下消息后按分区进行消费和提交
+		重复问题的幂等性： 使用唯一索引 或者 redis存储消费过的消费位移解决
+
+
+
+	2.kafka分区再均衡:
+		当有如下行为会触发再均衡：
+			1.有新的消费者加入消费组
+			2.有消费者宕机下线
+			3.有消费者主动退出消费者
+			4.消费组内订阅的任一主题发生变化
+
+		再均衡策略有:
+			1.range:对每个主题的分区平均分配给消费者组里的消费者，这个操作是对主题级的，所以当有多个主题的时候，容易出现失衡的情况
+			2.roundRobin:对所有主题下的分区轮询的分配给消费者，当所有消费者都订阅了同样的主题情况下可以达到最优，但是当消费者订阅主题情况不同时还是会出现失衡的情况
+			3.sticky:1.避免了roundRobin的问题  2.分区转移消费者消耗较大，sticky会在再均衡时，尽可能保持原有的分配，然后再做均衡
+
+
+
+kafka面试题:
+	1.你为什么要在系统中使用消息队列(kafka)？
+		解耦（多个流式系统使用同一份数据源，将数据灌入消息队列，自行订阅即可）
+		削峰（流式系统消费数据需要一定时间，在高峰期时候会承受不住，需要消息队列进行削峰）
+
+	2.你们是如何保证数据不丢失的呢？
+		生产端利用 acks机制 保证不丢失，将acks=-1，即表示ISR中的所有副本成功写入就对生产者端才发送成功相应，这里是ISR而不是所有副本，可以避免长尾效应
+		broker端，我们每个分区采用了3个副本，利用多副本消息同步机制 保证不丢失，kafka的多副本同步机制是基于高水位HW 和 leader纪元设计的同步机制（高水位HW前的消息在所有的ISR副本中都存储了，这样避免了因单个副本损坏导致的数据丢失，但由于HW在副本之间的同步存在延时性，在某些特定依然存在数据丢失的可能，新增了leader纪元进行协助同步，旧版本在副本重启后，会根据HW进行截断数据，恢复运行，在新版本，会向leader副本发送自己的leader纪元，然后根据该leader纪元的最后一条消息进行截断，这样就避免了之前的消息丢失场景）
+		消费端我们使用的是手动提交消费位移，在真正消费完成后提交消费位移，保证了不丢失，但由于我们的实际内容存储是KV存储的Hbase，保证了重复消费时候的幂等性
+
+	3.kafka再均衡你们是怎么设置的？
+		我们使用的是默认的roundRobin，因为我们所有消费者订阅了同样的主题
+
+		再均衡策略有:
+			1.range:对每个主题的分区平均分配给消费者组里的消费者，这个操作是对主题级的，所以当有多个主题的时候，容易出现失衡的情况
+			2.roundRobin:对所有主题下的分区轮询的分配给消费者，当所有消费者都订阅了同样的主题情况下可以达到最优，但是当消费者订阅主题情况不同时还是会出现失衡的情况
+			3.sticky:分区转移消费者消耗较大，sticky会在再均衡时，尽可能保持原有的分配，然后再做均衡
+
+	4.kafka为什么快
+  
+		虽然kafka使用的是磁盘存储，但是针对磁盘的读写有这两点优化：1.顺序读写，顺序读写减少了寻址的时间，而寻址是磁盘读写最耗时的阶段 2.充分利用了页缓存，页缓存是对磁盘页在内存中的映射，对页缓存的操作和对内存的操作速度一致。3.另外还使用了零拷贝技术，之前消费消息时，需要从磁盘将数据复制到内存，再从内存发往内核态的网卡，这就导致了两次内核态与用户态的切换，零拷贝技术可以直接从磁盘将数据发往网卡，减少了内核态和用户态的切换。4.此外，消息的压缩技术也大大减少了网络传输的的耗时
+
+
+
+
+kafka学习总结:
+	
+	1.消息发布过程:
+		1.1 配置生产者客户端参数和创建相应的生产者实例
+				首先确认必须配置的参数:
+					servers: kafka集群的broker地址清单，无需全部填写（因为从单个broker可以访问得到其他broker原数据信息）但建议至少配置两个以上，防止单个宕机
+					key.serializer和value.serializer: 网络传输中传输的是二进制文件，需要将key 和 value序列化，所以需要指定使用的序列化器
+				将参数封装进Properties中，再作为构造函数参数构造KafkaProducer对象
+
+		1.2 构建待发送的消息
+				指定topic和value构建ProducerRecord对象，还可以在此处指定 key (影响所选择分区) 和 添加header
+
+		1.3 发送消息
+				发送消息有三种模式: 发后即忘 同步 异步
+				发后即忘的实现: KafkaProducer.send(ProducerRecord)
+				同步的实现: KafkaProducer.send(ProducerRecord).get() 将获取一个RecordMetadata,该写法是使用链式调用阻塞等待kafka的响应,此处可以设定最大阻塞时间
+				异步的实现: KafkaProducer.send(ProducerRecord, new Callback(){do something})
+
+		1.4 关闭KafkaProducer
+				KafkaProducer.close() 会等待之前所有的发送请求后再关闭，可设置超时时间
+
+
+
+
+
+
+	2.消息消费
+
+
+
+
+		消费位移的提交:
+			消费位移是消费者消费kafka分区中消费到的位置，需要提交到kafka服务器进行持久化保存，这个行为也被称为提交位移
+			位移提交有两种方式:
+				1.自动提交:自动位移提交的动作是在poll（）方法的逻辑里完成的，在每次真正向服务端发起拉取请求之前会检查是否可以进行位移提交，如果可以，那么就会提交上一次轮询的位移。
+					优点:较为简单
+					缺点:异常可能会导致重复消费和消息丢失
+
+
+
+
+
+	3.日志存储
+		kafka文件关系:
+			topic -> 分区 -> 副本 -> log(d) -> logsegment -> .index .log .timeindex
+			<-       逻辑      ->     <-                物理                     ->
+
+
+		kafka文件格式:
+				  .log  : recordBatch -> headers -> firstOffset length firstTimeStamp recordCount等
+				  						 records -> Record
+				  						 			Record -> length timestampdelta offsetdelet keylength key valuelength value headerscount header(应用级扩展)
+			    .index  : relativeOffset - position   map 
+			.timeindex  : timestamp	- relativeOffset  map
+			
+			文件创建时机 	:每当activeLogsegment超过物理阙值或时间阙值就会创建新的logsgment
+			文件更新时机  :每当消息数据超过物理阙值或时间阙值进行.index .timeindex的kv落盘， .index中的relativeOffset是多个消息中最小的relativeOffset  .timeindex中的timestamp是多个消息中最大的timestamp
+			查找方式		:logsegment的查找是使用跳跃表  .index文件里key的查找方式是使用二分法	.timeindex文件里的查找方式是顺序查找
 
