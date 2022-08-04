@@ -37,16 +37,16 @@ JAVA多线程知识:
 						Future<T> submit(Runnable task, T result) Futrue.get返回result
 						Future<T> submit(Callable<T> task) 返回task的结果
 
-
-
-
-
-
 		Executors提供了
 			Executors.newCachedThreadPool（无界线程池，自动线程回收）
 			Executors.newFixedThreadPool（固定大小的线程池）
 			Executors.newSingleThreadExecutor（单一后台线程）
 
+
+		CompletionService
+			
+			
+			
 	volatile
 		可见性:volatile关键字用于标记一个变量“应当读写都在主存”。更确切地说，每次读取volatile变量，都应该从主存读取，而不是从CPU缓存读取。每次写入一个volatile变量，应该写到主存中，而不是仅仅写到CPU缓存。这样保证了变量可见性。且具有完整可见性（在对volatile变量操作后，其余变量也当时可见）
 		有序性:提供了happends-before保证
